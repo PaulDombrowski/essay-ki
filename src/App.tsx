@@ -30,7 +30,8 @@ type WorksheetState = {
 }
 
 const STORAGE_KEY = 'ki_adb_arbeitsblatt_v1'
-const imageSources = Array.from({ length: 12 }, (_, idx) => `/${idx + 1}.png`)
+const assetBase = import.meta.env.BASE_URL
+const imageSources = Array.from({ length: 12 }, (_, idx) => `${assetBase}${idx + 1}.png`)
 
 const ortOptions = [
   'völlig irrelevant',
@@ -85,7 +86,7 @@ function App() {
   const analyserRef = useRef<AnalyserNode | null>(null)
   const dataArrayRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
   const rafRef = useRef<number | null>(null)
-  const [audioUrl] = useState<string>('/essay.mp3')
+  const [audioUrl] = useState<string>(`${assetBase}essay.mp3`)
   const [intensity, setIntensity] = useState(0)
   const [sprites, setSprites] = useState<Sprite[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
@@ -419,8 +420,35 @@ function App() {
     const rect = node.getBoundingClientRect()
     const clone = node.cloneNode(true) as HTMLElement
     clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml')
+    clone.style.margin = '0'
     clone.style.background = '#f7fbff'
-    const styleTags = Array.from(document.querySelectorAll('style')).map((s) => s.innerHTML).join('\n')
+
+    const copyStyles = (source: Element, target: Element) => {
+      const computed = window.getComputedStyle(source)
+      const style: Record<string, string> = {}
+      for (let i = 0; i < computed.length; i++) {
+        const prop = computed.item(i)
+        if (!prop) continue
+        style[prop] = computed.getPropertyValue(prop)
+      }
+      const styleString = Object.entries(style)
+        .map(([k, v]) => `${k}:${v};`)
+        .join('')
+      target.setAttribute('style', styleString)
+
+      const sourceChildren = Array.from(source.children)
+      const targetChildren = Array.from(target.children)
+      for (let i = 0; i < sourceChildren.length; i++) {
+        copyStyles(sourceChildren[i], targetChildren[i])
+      }
+    }
+
+    copyStyles(node, clone)
+
+    const styleTags = Array.from(document.querySelectorAll('style'))
+      .map((s) => s.innerHTML)
+      .join('\n')
+
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${rect.width}" height="${rect.height}">
         <rect width="100%" height="100%" fill="#f7fbff" />
@@ -439,6 +467,8 @@ function App() {
       canvas.height = rect.height * 2
       const ctx = canvas.getContext('2d')
       if (!ctx) return
+      ctx.fillStyle = '#f7fbff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.scale(2, 2)
       ctx.drawImage(img, 0, 0)
       canvas.toBlob((blob) => {
